@@ -1,5 +1,6 @@
 appId: com.koyomiji.hyperproductivity
 productName: Hyperproductivity
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 directories:
   output: release
 files:
