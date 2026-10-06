@@ -96,7 +96,10 @@ textarea:focus, input:focus { border-color: #719678; }
 .feed-card { height: 100%; width: 100%; display: flex; flex-direction: column; background: #fff; border: 1px solid #e2e6df; border-radius: 12px; padding: clamp(24px, 4vh, 42px) clamp(28px, 5vw, 56px) 30px; will-change: transform, opacity; }
 .feed-card.leaving { transform: translateY(-110%); opacity: .45; transition: transform 180ms ease-in, opacity 180ms ease-in; }
 .feed-card.entering { animation: feed-enter 220ms ease-out both; }
+.feed-card.leaving-back { transform: translateY(110%); opacity: .45; transition: transform 180ms ease-in, opacity 180ms ease-in; }
+.feed-card.entering-back { animation: feed-enter-back 220ms ease-out both; }
 @keyframes feed-enter { from { transform: translateY(100%); opacity: .5; } to { transform: translateY(0); opacity: 1; } }
+@keyframes feed-enter-back { from { transform: translateY(-100%); opacity: .5; } to { transform: translateY(0); opacity: 1; } }
 .feed-card .card-copy { margin: auto 0; }
 .feed-card .card-copy h2 { font-size: clamp(30px, 4.2vw, 44px); }
 .feed-card .goals { margin-top: 18px; }
@@ -107,8 +110,9 @@ textarea:focus, input:focus { border-color: #719678; }
 .feed-controls .timer span { margin-left: 10px; color: #67836a; font-size: 14px; letter-spacing: 0; font-weight: 500; }
 .feed-controls .field-label { margin-bottom: -4px; }
 .scroll-cue { position: absolute; right: 20px; bottom: 102px; width: 30px; height: 30px; display: grid; place-items: center; color: #9aa49a; font-size: 22px; pointer-events: none; }
+.back-cue { position: absolute; right: 20px; top: 12px; width: 30px; height: 30px; display: grid; place-items: center; color: #9aa49a; font-size: 22px; pointer-events: none; }
 .last-result { max-width: 100%; }
-@media (prefers-reduced-motion: reduce) { .feed-card.leaving { transition: none; }.feed-card.entering { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .feed-card.leaving, .feed-card.leaving-back { transition: none; }.feed-card.entering, .feed-card.entering-back { animation: none; } }
 @media (max-height: 740px) {
   .play-layout { padding-top: 16px; }
   .feed-card { padding: 16px 28px; }

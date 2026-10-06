@@ -5,20 +5,20 @@ import { useI18n } from '../i18n'
 import { useWatcher } from '../store'
 
 type Props = {
-  onSkip: () => Promise<void>
+  onNavigate: (direction: 'next' | 'previous') => Promise<void>
   onChangeDeck: (id: string) => void
   onStart: (cardId: string) => Promise<void>
   onFinish: (sessionId: string, note: string) => Promise<void>
 }
 
-export function PlayView({ onSkip, onChangeDeck, onStart, onFinish }: Props) {
+export function PlayView({ onNavigate, onChangeDeck, onStart, onFinish }: Props) {
   const store = useWatcher(AppStore)
   const { locale, t } = useI18n()
   const [now, setNow] = useState(Date.now())
   const feedRef = useRef<HTMLElement | null>(null)
   const wheelDistance = useRef(0)
   const touchStart = useRef<number | null>(null)
-  const { data, deckId, card, completedSessionId, note, busy, motion } = store
+  const { data, deckId, card, feedIndex, completedSessionId, note, busy, motion } = store
   const active = data?.sessions.find(session => session.endedAt === null)
   const completed = data?.sessions.find(session => session.id === completedSessionId)
   const currentDeck = data?.decks.find(deck => deck.id === deckId)
@@ -35,16 +35,17 @@ export function PlayView({ onSkip, onChangeDeck, onStart, onFinish }: Props) {
     const onWheel = (event: WheelEvent) => {
       if ((event.target as HTMLElement).closest('textarea')) return
       event.preventDefault()
-      if (event.deltaY < 0) { wheelDistance.current = 0; return }
+      if (Math.sign(event.deltaY) !== Math.sign(wheelDistance.current)) wheelDistance.current = 0
       wheelDistance.current += event.deltaY
-      if (wheelDistance.current >= 75) {
+      if (Math.abs(wheelDistance.current) >= 75) {
+        const direction = wheelDistance.current > 0 ? 'next' : 'previous'
         wheelDistance.current = 0
-        void onSkip()
+        void onNavigate(direction)
       }
     }
     feed.addEventListener('wheel', onWheel, { passive: false })
     return () => feed.removeEventListener('wheel', onWheel)
-  }, [active?.id, completed?.id, card?.id, note, busy, onSkip])
+  }, [active?.id, completed?.id, card?.id, note, busy, onNavigate])
 
   if (!data) return null
   return <main className="play-layout">
@@ -56,15 +57,19 @@ export function PlayView({ onSkip, onChangeDeck, onStart, onFinish }: Props) {
       ref={feedRef}
       className="feed-stage"
       tabIndex={0}
-      aria-label={completed ? t('completedFeed') : t('cardFeed')}
+      aria-label={completed ? t(feedIndex > 0 ? 'completedFeedWithBack' : 'completedFeed') : t(feedIndex > 0 ? 'cardFeedWithBack' : 'cardFeed')}
       onTouchStart={event => { touchStart.current = (event.target as HTMLElement).closest('textarea, button') ? null : event.touches[0]?.clientY ?? null }}
       onTouchEnd={event => {
-        if (touchStart.current !== null && touchStart.current - (event.changedTouches[0]?.clientY ?? touchStart.current) > 65) void onSkip()
+        if (touchStart.current !== null) {
+          const distance = touchStart.current - (event.changedTouches[0]?.clientY ?? touchStart.current)
+          if (Math.abs(distance) > 65) void onNavigate(distance > 0 ? 'next' : 'previous')
+        }
         touchStart.current = null
       }}
       onKeyDown={event => {
         if (event.target !== event.currentTarget) return
-        if (event.key === 'ArrowDown' || event.key === 'PageDown') { event.preventDefault(); void onSkip() }
+        if (event.key === 'ArrowDown' || event.key === 'PageDown') { event.preventDefault(); void onNavigate('next') }
+        if (event.key === 'ArrowUp' || event.key === 'PageUp') { event.preventDefault(); void onNavigate('previous') }
       }}
     >
       <div className={`feed-card ${motion} ${completed ? 'completed-card' : ''}`}>
@@ -86,6 +91,7 @@ export function PlayView({ onSkip, onChangeDeck, onStart, onFinish }: Props) {
         </> : <div className="empty-card"><strong>{t('noCards')}</strong><p>{t('addCardHint')}</p></div>}
       </div>
       {!active && (shownCard || completed) && <div className="scroll-cue" aria-hidden="true">↓</div>}
+      {!active && feedIndex > 0 && <div className="back-cue" aria-hidden="true">↑</div>}
     </section>
     {lastResult && !completed && <div className="last-result"><span>{t('previous')}</span><strong>{lastResult.cardTitle}</strong><span>Lv {lastResult.level}　+{formatExp(lastResult.exp ?? 0, locale)} EXP</span></div>}
   </main>
