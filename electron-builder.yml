@@ -1,0 +1,16 @@
+appId: com.koyomiji.hyperproductivity
+productName: Hyperproductivity
+directories:
+  output: release
+files:
+  - out/**/*
+  - package.json
+asar: true
+mac:
+  category: public.app-category.productivity
+  target: zip
+win:
+  target: portable
+linux:
+  category: Utility
+  target: AppImage

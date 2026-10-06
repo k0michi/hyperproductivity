@@ -72,6 +72,8 @@ function createWindow(): void {
   if (process.env.ELECTRON_RENDERER_URL) void window.loadURL(process.env.ELECTRON_RENDERER_URL)
   else void window.loadFile(join(__dirname, '../renderer/index.html'))
 }
+app.setAppUserModelId('com.koyomiji.hyperproductivity')
+
 void app.whenReady().then(() => {
   setupDatabase()
   ipcMain.handle('state', () => snapshot())
