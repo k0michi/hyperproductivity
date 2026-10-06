@@ -1,4 +1,5 @@
 import { Store } from './store'
+import { dateKey } from './format'
 
 export type Locale = 'ja' | 'en'
 export type Deck = { id: string; name: string; color: string }
@@ -25,8 +26,13 @@ export class AppStore extends Store {
   notice = ''
   busy = false
   motion: Motion = ''
+  selectedDate = dateKey(new Date())
+  newDeck = ''
+  newTitle = ''
+  newCue = ''
+  newGoals = ['', '', '', '']
 
-  set(patch: Partial<Pick<AppStore, 'locale' | 'data' | 'tab' | 'deckId' | 'card' | 'completedSessionId' | 'note' | 'notice' | 'busy' | 'motion'>>): void {
+  set(patch: Partial<Pick<AppStore, 'locale' | 'data' | 'tab' | 'deckId' | 'card' | 'completedSessionId' | 'note' | 'notice' | 'busy' | 'motion' | 'selectedDate' | 'newDeck' | 'newTitle' | 'newCue' | 'newGoals'>>): void {
     Object.assign(this, patch)
     if (patch.locale !== undefined) {
       localStorage.setItem('locale', patch.locale)
