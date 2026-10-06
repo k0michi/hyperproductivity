@@ -1,0 +1,10 @@
+.timeline { margin: 0 0 20px; }
+.heading { display: flex; justify-content: space-between; margin-bottom: 8px; color: #6d786e; font-size: 11px; font-weight: 600; }
+.viewport { width: 100%; overflow-x: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.content { min-width: 100%; }
+.axis { display: flex; justify-content: space-between; padding-bottom: 6px; color: #8d978e; font-size: 10px; font-variant-numeric: tabular-nums; }
+.track { position: relative; height: 32px; overflow: hidden; border-radius: 3px; background: linear-gradient(90deg, transparent calc(25% - .5px), #dfe6dc calc(25% - .5px), #dfe6dc calc(25% + .5px), transparent calc(25% + .5px)), linear-gradient(90deg, transparent calc(50% - .5px), #dfe6dc calc(50% - .5px), #dfe6dc calc(50% + .5px), transparent calc(50% + .5px)), linear-gradient(90deg, transparent calc(75% - .5px), #dfe6dc calc(75% - .5px), #dfe6dc calc(75% + .5px), transparent calc(75% + .5px)), #f2f5f0; }
+.bar { position: absolute; top: 4px; bottom: 4px; min-width: 3px; padding: 0; border: 0; border-radius: 2px; background: #5c9770; }
+.bar:hover, .bar:focus-visible { z-index: 1; background: #326948; outline: 2px solid #244b32; outline-offset: 1px; }
+.detail { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 9px; color: #768176; font-size: 11px; }
+.detail strong { color: #354735; }

@@ -5,6 +5,7 @@ import { AppStore } from '../appStore'
 import { dateKey, formatDate, formatExp, formatTime } from '../format'
 import { useI18n } from '../i18n'
 import { useWatcher } from '../store'
+import { DayTimeline } from './DayTimeline'
 
 export function HistoryView() {
   const store = useWatcher(AppStore)
@@ -29,6 +30,13 @@ export function HistoryView() {
   }, [data])
   if (!data) return null
   const selectedSessions = earned.filter(session => session.localDate === selectedDate)
+  const dayStart = new Date(`${selectedDate}T00:00:00`).getTime()
+  const nextDay = new Date(dayStart)
+  nextDay.setDate(nextDay.getDate() + 1)
+  const dayEnd = nextDay.getTime()
+  const timelineSessions = earned
+    .filter(session => session.startedAt < dayEnd && (session.startedAt >= dayStart || (session.endedAt ?? session.startedAt) > dayStart))
+    .sort((a, b) => a.startedAt - b.startedAt)
 
   return <main className={shared['page-layout']}>
     <h1>{t('history')}</h1>
@@ -39,6 +47,7 @@ export function HistoryView() {
     </section>
     <div className={styles['history-bottom']}>
       <section className={`${shared.panel} ${styles['day-panel']}`}><div className={shared['panel-title']}><h2>{formatDate(selectedDate, locale)}</h2><span>{t('count', { count: selectedSessions.length })}</span></div>
+        {timelineSessions.length > 0 && <DayTimeline key={selectedDate} sessions={timelineSessions} dayStart={dayStart} dayEnd={dayEnd} />}
         {selectedSessions.length ? selectedSessions.map(session => <div className={styles['session-row']} key={session.id}><span className={styles['session-level']}>Lv {session.level}</span><div><strong>{session.cardTitle}</strong><small>{session.deckName} · {new Date(session.startedAt).toLocaleTimeString(locale === 'ja' ? 'ja-JP' : 'en-US', { hour: '2-digit', minute: '2-digit' })} · {formatTime(session.durationMs ?? 0)}</small>{session.note && <p>{session.note}</p>}</div><b>+{formatExp(session.exp ?? 0, locale)}</b></div>) : <p className={styles['quiet']}>{t('noRecords')}</p>}
       </section>
       <section className={`${shared.panel} ${styles['totals-panel']}`}><div><small>{t('totalExp')}</small><strong>{formatExp(data.totalExp, locale)}</strong></div><div><small>{t('actionCount')}</small><strong>{earned.length}</strong></div></section>
