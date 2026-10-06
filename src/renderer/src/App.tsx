@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 type Deck = { id: string; name: string; color: string }
 type Card = { id: string; deckId: string; title: string; cue: string; goals: string[]; weight: number }
@@ -21,6 +21,11 @@ export default function App() {
   const [note, setNote] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
+  const [motion, setMotion] = useState<'leaving' | 'entering' | ''>('')
+  const feedRef = useRef<HTMLElement | null>(null)
+  const wheelDistance = useRef(0)
+  const touchStart = useRef<number | null>(null)
+  const skipLock = useRef(false)
   const [selectedDate, setSelectedDate] = useState(dateKey(new Date()))
   const [newDeck, setNewDeck] = useState('')
   const [newTitle, setNewTitle] = useState('')
@@ -59,7 +64,40 @@ export default function App() {
     try { await action() } catch (error) { setNotice(error instanceof Error ? error.message : String(error)) }
     finally { setBusy(false) }
   }
-  function changeDeck(id: string) { if (!active) setDeckId(id) }
+  async function skipCard() {
+    if (!card || active || busy || skipLock.current) return
+    skipLock.current = true
+    setBusy(true)
+    setMotion('leaving')
+    try {
+      await new Promise(resolve => window.setTimeout(resolve, 180))
+      setCard(await window.api.skip(card.id))
+      setMotion('entering')
+      await new Promise(resolve => window.setTimeout(resolve, 220))
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error))
+    } finally {
+      setMotion('')
+      setBusy(false)
+      skipLock.current = false
+    }
+  }
+  function changeDeck(id: string) { if (!active && !skipLock.current) setDeckId(id) }
+  useEffect(() => {
+    const feed = feedRef.current
+    if (!feed || tab !== 'play' || active || !card) return
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      if (event.deltaY < 0) { wheelDistance.current = 0; return }
+      wheelDistance.current += event.deltaY
+      if (wheelDistance.current >= 75) {
+        wheelDistance.current = 0
+        void skipCard()
+      }
+    }
+    feed.addEventListener('wheel', onWheel, { passive: false })
+    return () => feed.removeEventListener('wheel', onWheel)
+  }, [tab, active?.id, card?.id, busy])
   const heatmap = useMemo(() => {
     const days: Array<{ key: string; count: number; exp: number }> = []
     const map = new Map<string, { count: number; exp: number }>()
@@ -96,26 +134,37 @@ export default function App() {
         <h1>{active ? '取り組み中' : '行動カード'}</h1>
         <div className="deck-pills">{data.decks.map(d => <button key={d.id} disabled={!!active} className={deckId === d.id ? 'deck-pill selected' : 'deck-pill'} onClick={() => changeDeck(d.id)}>{d.name}</button>)}</div>
       </div>
-      <div className="arena">
-        <section className="card-frame" aria-label="現在の行動カード">
+      <section
+        ref={feedRef}
+        className="feed-stage"
+        tabIndex={0}
+        aria-label="行動カード。下にスクロールすると次のカード"
+        onTouchStart={event => { touchStart.current = event.touches[0]?.clientY ?? null }}
+        onTouchEnd={event => {
+          if (touchStart.current !== null && touchStart.current - (event.changedTouches[0]?.clientY ?? touchStart.current) > 65) void skipCard()
+          touchStart.current = null
+        }}
+        onKeyDown={event => {
+          if (event.target !== event.currentTarget) return
+          if (event.key === 'ArrowDown' || event.key === 'PageDown') { event.preventDefault(); void skipCard() }
+        }}
+      >
+        <div className={`feed-card ${motion}`}>
           {shownCard ? <>
             <div className="card-copy"><span>{currentDeck?.name ?? active?.deckName}</span><h2>{shownCard.title}</h2><p>{shownCard.cue}</p></div>
             <div className="goals">{shownCard.goals.map((goal, i) => <div className="goal" key={i}><b className={active && currentLevel === i + 1 ? 'lit' : ''}>Lv {i + 1}</b><span>{goal || '自由に取り組む'}</span></div>)}</div>
+            <div className="feed-controls">
+              {active ? <>
+                <div className="timer">{formatTime(elapsed)} <span>Lv {currentLevel}</span></div>
+                <label className="field-label" htmlFor="session-note">メモ <span>任意</span></label>
+                <textarea id="session-note" value={note} maxLength={1000} onChange={e => setNote(e.target.value)} />
+                <button className="primary-button" disabled={busy} onClick={() => run(async () => { setData(await window.api.finish(active.id, note)); setNote(''); setCard(null) })}>終了する</button>
+              </> : <button className="primary-button" disabled={!card || busy} onClick={() => run(async () => { await window.api.start(card!.id); setData(await window.api.state()); setNow(Date.now()) })}>はじめる</button>}
+            </div>
           </> : <div className="empty-card"><strong>カードがありません</strong><p>デッキからカードを追加してください。</p></div>}
-        </section>
-        <section className="control-panel">
-          {active ? <>
-            <div className="timer">{formatTime(elapsed)}</div>
-            <div className="timer-caption">Lv {currentLevel}</div>
-            <label className="field-label" htmlFor="session-note">メモ <span>任意</span></label>
-            <textarea id="session-note" value={note} maxLength={1000} onChange={e => setNote(e.target.value)} placeholder="" />
-            <button className="primary-button" disabled={busy} onClick={() => run(async () => { setData(await window.api.finish(active.id, note)); setNote(''); setCard(null) })}>終了する</button>
-          </> : <>
-            <button className="primary-button" disabled={!card || busy} onClick={() => run(async () => { await window.api.start(card!.id); setData(await window.api.state()); setNow(Date.now()) })}>はじめる</button>
-            <button className="text-button" disabled={!card || busy} onClick={() => run(async () => setCard(await window.api.skip(card!.id)))}>次のカード</button>
-          </>}
-        </section>
-      </div>
+        </div>
+        {!active && shownCard && <div className="scroll-cue" aria-hidden="true">↓</div>}
+      </section>
       {lastResult && <div className="last-result"><span>前回</span><strong>{lastResult.cardTitle}</strong><span>Lv {lastResult.level}　+{formatExp(lastResult.exp ?? 0)} EXP</span></div>}
     </main>}
 
