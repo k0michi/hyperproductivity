@@ -89,7 +89,7 @@ void app.whenReady().then(() => {
     const existing = db.prepare('SELECT id FROM sessions WHERE ended_at IS NULL LIMIT 1').get() as { id: string } | undefined
     if (existing) return existing.id
     const card = allCards().find(c => c.id === cardId)
-    if (!card) throw new Error('カードが見つかりません')
+    if (!card) throw new Error('Card not found')
     const deck = allDecks().find(d => d.id === card.deckId)!
     const id = uid(); const now = Date.now()
     db.prepare('INSERT INTO sessions (id, deck_id, card_id, deck_name, card_title, started_at, local_date) VALUES (?, ?, ?, ?, ?, ?, ?)')
@@ -99,7 +99,7 @@ void app.whenReady().then(() => {
   })
   ipcMain.handle('finish', (_event, sessionId: string, note: string) => {
     const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId) as { deck_id: string; card_id: string; started_at: number; ended_at: number | null } | undefined
-    if (!session) throw new Error('セッションが見つかりません')
+    if (!session) throw new Error('Session not found')
     if (session.ended_at !== null) return snapshot()
     const now = Date.now(); const duration = Math.max(0, now - session.started_at); const minutes = duration / 60000
     const level = minutes >= 45 ? 4 : minutes >= 15 ? 3 : minutes >= 3 ? 2 : 1
@@ -117,7 +117,7 @@ void app.whenReady().then(() => {
   })
   ipcMain.handle('save-note', (_event, sessionId: string, note: string) => {
     const session = db.prepare('SELECT deck_id, card_id, note FROM sessions WHERE id = ?').get(sessionId) as { deck_id: string; card_id: string; note: string } | undefined
-    if (!session) throw new Error('セッションが見つかりません')
+    if (!session) throw new Error('Session not found')
     const savedNote = note.slice(0, 1000)
     if (savedNote !== session.note) {
       db.exec('BEGIN')
@@ -130,13 +130,13 @@ void app.whenReady().then(() => {
     return snapshot()
   })
   ipcMain.handle('add-deck', (_event, name: string) => {
-    const trimmed = name.trim().slice(0, 40); if (!trimmed) throw new Error('名前を入力してください')
+    const trimmed = name.trim().slice(0, 40); if (!trimmed) throw new Error('Deck name is required')
     const id = uid(); db.prepare('INSERT INTO decks VALUES (?, ?, ?)').run(id, trimmed, '#b8a6e8')
     return snapshot()
   })
   ipcMain.handle('add-card', (_event, deckId: string, title: string, cue: string, goals: string[]) => {
     const trimmed = title.trim().slice(0, 60)
-    if (!trimmed || !allDecks().some(d => d.id === deckId)) throw new Error('カード名とデッキを確認してください')
+    if (!trimmed || !allDecks().some(d => d.id === deckId)) throw new Error('A valid deck and card title are required')
     const id = uid()
     db.prepare('INSERT INTO cards (id, deck_id, title, cue, goals) VALUES (?, ?, ?, ?, ?)').run(id, deckId, trimmed, cue.trim().slice(0, 120), JSON.stringify(goals.map(g => g.trim().slice(0, 120))))
     return snapshot()
