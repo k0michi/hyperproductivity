@@ -3,6 +3,7 @@ import { AppStore } from '../appStore'
 import { formatExp, formatTime } from '../format'
 import { useI18n } from '../i18n'
 import { useWatcher } from '../store'
+import { PressableButton } from './PressableButton'
 
 type Props = {
   onNavigate: (direction: 'next' | 'previous') => Promise<void>
@@ -85,8 +86,8 @@ export function PlayView({ onNavigate, onChangeDeck, onStart, onFinish }: Props)
               <div className="timer">{formatTime(elapsed)} <span>Lv {currentLevel}</span></div>
               <label className="field-label" htmlFor="session-note">{t('note')} <span>{t('optional')}</span></label>
               <textarea id="session-note" value={note} maxLength={1000} onChange={event => store.set({ note: event.target.value })} placeholder={t('progressPlaceholder')} />
-              <button className="primary-button" disabled={busy} onClick={() => void onFinish(active.id, note)}>{t('finish')}</button>
-            </> : <button className="primary-button" disabled={!card || busy} onClick={() => { if (card) void onStart(card.id).then(() => setNow(Date.now())) }}>{t('start')}</button>}
+              <PressableButton tone="danger" disabled={busy} onClick={() => void onFinish(active.id, note)}>{t('finish')}</PressableButton>
+            </> : <PressableButton disabled={!card || busy} onClick={() => { if (card) void onStart(card.id).then(() => setNow(Date.now())) }}>{t('start')}</PressableButton>}
           </div>
         </> : <div className="empty-card"><strong>{t('noCards')}</strong><p>{t('addCardHint')}</p></div>}
       </div>
