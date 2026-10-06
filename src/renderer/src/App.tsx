@@ -1,29 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useI18n, type Locale } from './i18n'
+import { AppStore, type Card, type State, type Tab, type Motion } from './appStore'
+import { useWatcher } from './store'
 
-type Deck = { id: string; name: string; color: string }
-type Card = { id: string; deckId: string; title: string; cue: string; goals: string[]; weight: number }
-type Session = { id: string; deckId: string; cardId: string; deckName: string; cardTitle: string; startedAt: number; endedAt: number | null; durationMs: number | null; level: number | null; exp: number | null; localDate: string; note: string }
-type State = { decks: Deck[]; cards: Card[]; sessions: Session[]; totalExp: number; formula: { b: number; a: number; p: number } }
 type Api = { state: () => Promise<State>; draw: (deckId: string, excludeId?: string) => Promise<Card | null>; skip: (cardId: string) => Promise<Card | null>; start: (cardId: string) => Promise<string>; finish: (sessionId: string, note: string) => Promise<State>; saveNote: (sessionId: string, note: string) => Promise<State>; addDeck: (name: string) => Promise<State>; addCard: (deckId: string, title: string, cue: string, goals: string[]) => Promise<State> }
 declare global { interface Window { api: Api } }
 
 const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 const formatTime = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, '0')}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`
 export default function App() {
+  const store = useWatcher(AppStore)
   const { locale, setLocale, t } = useI18n()
   const formatExp = (value: number) => value.toLocaleString(locale === 'ja' ? 'ja-JP' : 'en-US', { maximumFractionDigits: 1 })
   const formatDate = (key: string) => new Date(`${key}T00:00:00`).toLocaleDateString(locale === 'ja' ? 'ja-JP' : 'en-US', { month: 'long', day: 'numeric', weekday: 'short' })
-  const [data, setData] = useState<State | null>(null)
-  const [tab, setTab] = useState<'play' | 'history' | 'decks' | 'settings'>('play')
-  const [deckId, setDeckId] = useState('')
-  const [card, setCard] = useState<Card | null>(null)
-  const [completedSessionId, setCompletedSessionId] = useState<string | null>(null)
+  const { data, tab, deckId, card, completedSessionId, note, notice, busy, motion } = store
+  const setData = (value: State) => store.set({ data: value })
+  const setTab = (value: Tab) => store.set({ tab: value })
+  const setDeckId = (value: string) => store.set({ deckId: value })
+  const setCard = (value: Card | null) => store.set({ card: value })
+  const setCompletedSessionId = (value: string | null) => store.set({ completedSessionId: value })
+  const setNote = (value: string) => store.set({ note: value })
+  const setNotice = (value: string) => store.set({ notice: value })
+  const setBusy = (value: boolean) => store.set({ busy: value })
+  const setMotion = (value: Motion) => store.set({ motion: value })
   const [now, setNow] = useState(Date.now())
-  const [note, setNote] = useState('')
-  const [notice, setNotice] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [motion, setMotion] = useState<'leaving' | 'entering' | ''>('')
   const feedRef = useRef<HTMLElement | null>(null)
   const wheelDistance = useRef(0)
   const touchStart = useRef<number | null>(null)

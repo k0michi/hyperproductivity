@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { AppStore, type Locale } from './appStore'
+import { useReader, useSelector } from './store'
 
 export const messages = {
   ja: {
@@ -35,21 +37,14 @@ export const messages = {
   }
 } as const
 
-export type Locale = keyof typeof messages
+export type { Locale } from './appStore'
 export type MessageKey = keyof typeof messages.ja
 
-function initialLocale(): Locale {
-  const saved = localStorage.getItem('locale')
-  if (saved === 'ja' || saved === 'en') return saved
-  return navigator.language.toLowerCase().startsWith('ja') ? 'ja' : 'en'
-}
-
 export function useI18n() {
-  const [locale, setLocale] = useState<Locale>(initialLocale)
-  useEffect(() => {
-    localStorage.setItem('locale', locale)
-    document.documentElement.lang = locale
-  }, [locale])
+  const store = useReader(AppStore)
+  const locale: Locale = useSelector(AppStore, current => current.locale)
+  useEffect(() => { document.documentElement.lang = locale }, [locale])
+  const setLocale = (value: Locale) => store.set({ locale: value })
   function t(key: MessageKey, values: Record<string, string | number> = {}): string {
     const template: string = messages[locale][key]
     return template.replace(/\{(\w+)\}/g, (_, name: string) => String(values[name] ?? `{${name}}`))
