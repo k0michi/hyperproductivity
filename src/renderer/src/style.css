@@ -116,3 +116,23 @@ textarea:focus, input:focus { border-color: #719678; }
   .feed-controls .primary-button { min-height: 42px; }
   .last-result { display: none; }
 }
+
+.completed-card { justify-content: center; }
+.completion-heading { margin: auto 0 28px; text-align: center; }
+.completion-heading span { display: block; color: #7c867c; font-size: 13px; margin-bottom: 12px; }
+.completion-heading h2 { font-size: 38px; margin: 0; }
+.completion-result { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; border-top: 1px solid #e8ece6; border-bottom: 1px solid #e8ece6; padding: 22px 0; text-align: center; }
+.completion-result div + div { border-left: 1px solid #e8ece6; }
+.completion-result span { display: block; color: #8b958b; font-size: 11px; margin-bottom: 6px; }
+.completion-result strong { display: block; font-size: 28px; font-variant-numeric: tabular-nums; }
+.completion-note { margin: 28px 0 auto; }
+.completion-note textarea { display: block; width: 100%; min-height: 94px; resize: vertical; }
+.completed-card + .scroll-cue { bottom: 14px; }
+@media (max-height: 740px) {
+  .completion-heading { margin-bottom: 12px; }
+  .completion-heading h2 { font-size: 30px; }
+  .completion-result { padding: 12px 0; }
+  .completion-result strong { font-size: 23px; }
+  .completion-note { margin-top: 12px; }
+  .completion-note textarea { min-height: 65px; }
+}

@@ -4,7 +4,7 @@ type Deck = { id: string; name: string; color: string }
 type Card = { id: string; deckId: string; title: string; cue: string; goals: string[]; weight: number }
 type Session = { id: string; deckId: string; cardId: string; deckName: string; cardTitle: string; startedAt: number; endedAt: number | null; durationMs: number | null; level: number | null; exp: number | null; localDate: string; note: string }
 type State = { decks: Deck[]; cards: Card[]; sessions: Session[]; totalExp: number; formula: { b: number; a: number; p: number } }
-type Api = { state: () => Promise<State>; draw: (deckId: string, excludeId?: string) => Promise<Card | null>; skip: (cardId: string) => Promise<Card | null>; start: (cardId: string) => Promise<string>; finish: (sessionId: string, note: string) => Promise<State>; addDeck: (name: string) => Promise<State>; addCard: (deckId: string, title: string, cue: string, goals: string[]) => Promise<State> }
+type Api = { state: () => Promise<State>; draw: (deckId: string, excludeId?: string) => Promise<Card | null>; skip: (cardId: string) => Promise<Card | null>; start: (cardId: string) => Promise<string>; finish: (sessionId: string, note: string) => Promise<State>; saveNote: (sessionId: string, note: string) => Promise<State>; addDeck: (name: string) => Promise<State>; addCard: (deckId: string, title: string, cue: string, goals: string[]) => Promise<State> }
 declare global { interface Window { api: Api } }
 
 const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
@@ -17,6 +17,7 @@ export default function App() {
   const [tab, setTab] = useState<'play' | 'history' | 'decks'>('play')
   const [deckId, setDeckId] = useState('')
   const [card, setCard] = useState<Card | null>(null)
+  const [completedSessionId, setCompletedSessionId] = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
   const [note, setNote] = useState('')
   const [notice, setNotice] = useState('')
@@ -26,12 +27,16 @@ export default function App() {
   const wheelDistance = useRef(0)
   const touchStart = useRef<number | null>(null)
   const skipLock = useRef(false)
+  const drawLock = useRef(false)
+  const noteSaveQueue = useRef<Promise<void>>(Promise.resolve())
+  const noteTransition = useRef(false)
   const [selectedDate, setSelectedDate] = useState(dateKey(new Date()))
   const [newDeck, setNewDeck] = useState('')
   const [newTitle, setNewTitle] = useState('')
   const [newCue, setNewCue] = useState('')
   const [newGoals, setNewGoals] = useState(['', '', '', ''])
   const active = data?.sessions.find(s => s.endedAt === null)
+  const completed = data?.sessions.find(s => s.id === completedSessionId)
   const currentDeck = data?.decks.find(d => d.id === deckId)
   const activeCard = active && data?.cards.find(c => c.id === active.cardId)
   const shownCard = activeCard ?? card
@@ -46,17 +51,35 @@ export default function App() {
       if (!alive) return
       setData(state)
       setDeckId(state.sessions.find(s => s.endedAt === null)?.deckId ?? state.decks[0]?.id ?? '')
+      setNote(state.sessions.find(s => s.endedAt === null)?.note ?? '')
     }).catch(error => setNotice(String(error)))
     return () => { alive = false }
   }, [])
   useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(id) }, [])
   useEffect(() => {
-    if (!deckId || active) return
+    if (!deckId || active || completedSessionId || drawLock.current) return
     let alive = true
     setCard(null)
     window.api.draw(deckId).then(next => { if (alive) setCard(next) }).catch(error => setNotice(String(error)))
     return () => { alive = false }
-  }, [deckId, active?.id])
+  }, [deckId, active?.id, completedSessionId])
+  function saveNote(sessionId: string, value: string): Promise<void> {
+    const pending = noteSaveQueue.current.catch(() => {}).then(async () => {
+      const state = await window.api.saveNote(sessionId, value)
+      setData(state)
+    })
+    noteSaveQueue.current = pending
+    return pending
+  }
+  useEffect(() => {
+    const sessionId = active?.id ?? completed?.id
+    if (!sessionId || note === (active ?? completed)?.note || noteTransition.current) return
+    const timer = window.setTimeout(() => {
+      if (noteTransition.current) return
+      void saveNote(sessionId, note).catch(error => setNotice(error instanceof Error ? error.message : String(error)))
+    }, 500)
+    return () => window.clearTimeout(timer)
+  }, [active?.id, completed?.id, note, active?.note, completed?.note])
 
   async function run(action: () => Promise<void>) {
     if (busy) return
@@ -65,13 +88,18 @@ export default function App() {
     finally { setBusy(false) }
   }
   async function skipCard() {
-    if (!card || active || busy || skipLock.current) return
+    if ((!card && !completed) || active || busy || skipLock.current) return
     skipLock.current = true
+    drawLock.current = true
+    noteTransition.current = true
     setBusy(true)
-    setMotion('leaving')
     try {
+      if (completed) { await noteSaveQueue.current; if (note !== completed.note) await saveNote(completed.id, note) }
+      setMotion('leaving')
       await new Promise(resolve => window.setTimeout(resolve, 180))
-      setCard(await window.api.skip(card.id))
+      const next = completed ? await window.api.draw(deckId, completed.cardId) : await window.api.skip(card!.id)
+      setCard(next)
+      if (completed) { setCompletedSessionId(null); setNote('') }
       setMotion('entering')
       await new Promise(resolve => window.setTimeout(resolve, 220))
     } catch (error) {
@@ -80,13 +108,16 @@ export default function App() {
       setMotion('')
       setBusy(false)
       skipLock.current = false
+      drawLock.current = false
+      noteTransition.current = false
     }
   }
-  function changeDeck(id: string) { if (!active && !skipLock.current) setDeckId(id) }
+  function changeDeck(id: string) { if (!active && !completed && !skipLock.current) { setCard(null); setDeckId(id) } }
   useEffect(() => {
     const feed = feedRef.current
-    if (!feed || tab !== 'play' || active || !card) return
+    if (!feed || tab !== 'play' || active || (!card && !completed)) return
     const onWheel = (event: WheelEvent) => {
+      if ((event.target as HTMLElement).closest('textarea')) return
       event.preventDefault()
       if (event.deltaY < 0) { wheelDistance.current = 0; return }
       wheelDistance.current += event.deltaY
@@ -97,7 +128,7 @@ export default function App() {
     }
     feed.addEventListener('wheel', onWheel, { passive: false })
     return () => feed.removeEventListener('wheel', onWheel)
-  }, [tab, active?.id, card?.id, busy])
+  }, [tab, active?.id, completed?.id, card?.id, note, busy])
   const heatmap = useMemo(() => {
     const days: Array<{ key: string; count: number; exp: number }> = []
     const map = new Map<string, { count: number; exp: number }>()
@@ -131,15 +162,15 @@ export default function App() {
 
     {tab === 'play' && <main className="play-layout">
       <div className="page-head">
-        <h1>{active ? '取り組み中' : '行動カード'}</h1>
-        <div className="deck-pills">{data.decks.map(d => <button key={d.id} disabled={!!active} className={deckId === d.id ? 'deck-pill selected' : 'deck-pill'} onClick={() => changeDeck(d.id)}>{d.name}</button>)}</div>
+        <h1>{active ? '取り組み中' : completed ? '完了' : '行動カード'}</h1>
+        <div className="deck-pills">{data.decks.map(d => <button key={d.id} disabled={!!active || !!completed} className={deckId === d.id ? 'deck-pill selected' : 'deck-pill'} onClick={() => changeDeck(d.id)}>{d.name}</button>)}</div>
       </div>
       <section
         ref={feedRef}
         className="feed-stage"
         tabIndex={0}
-        aria-label="行動カード。下にスクロールすると次のカード"
-        onTouchStart={event => { touchStart.current = event.touches[0]?.clientY ?? null }}
+        aria-label={completed ? '完了結果。下にスクロールすると次のカード' : '行動カード。下にスクロールすると次のカード'}
+        onTouchStart={event => { touchStart.current = (event.target as HTMLElement).closest('textarea, button') ? null : event.touches[0]?.clientY ?? null }}
         onTouchEnd={event => {
           if (touchStart.current !== null && touchStart.current - (event.changedTouches[0]?.clientY ?? touchStart.current) > 65) void skipCard()
           touchStart.current = null
@@ -149,23 +180,27 @@ export default function App() {
           if (event.key === 'ArrowDown' || event.key === 'PageDown') { event.preventDefault(); void skipCard() }
         }}
       >
-        <div className={`feed-card ${motion}`}>
-          {shownCard ? <>
+        <div className={`feed-card ${motion} ${completed ? 'completed-card' : ''}`}>
+          {completed ? <>
+            <div className="completion-heading"><span>{completed.cardTitle}</span><h2>完了</h2></div>
+            <div className="completion-result"><div><span>Lv</span><strong>{completed.level}</strong></div><div><span>EXP</span><strong>+{formatExp(completed.exp ?? 0)}</strong></div><div><span>時間</span><strong>{formatTime(completed.durationMs ?? 0)}</strong></div></div>
+            <div className="completion-note"><label className="field-label" htmlFor="completion-note">メモ <span>任意</span></label><textarea id="completion-note" value={note} maxLength={1000} onChange={event => setNote(event.target.value)} placeholder="振り返りを残す" /></div>
+          </> : shownCard ? <>
             <div className="card-copy"><span>{currentDeck?.name ?? active?.deckName}</span><h2>{shownCard.title}</h2><p>{shownCard.cue}</p></div>
             <div className="goals">{shownCard.goals.map((goal, i) => <div className="goal" key={i}><b className={active && currentLevel === i + 1 ? 'lit' : ''}>Lv {i + 1}</b><span>{goal || '自由に取り組む'}</span></div>)}</div>
             <div className="feed-controls">
               {active ? <>
                 <div className="timer">{formatTime(elapsed)} <span>Lv {currentLevel}</span></div>
                 <label className="field-label" htmlFor="session-note">メモ <span>任意</span></label>
-                <textarea id="session-note" value={note} maxLength={1000} onChange={e => setNote(e.target.value)} />
-                <button className="primary-button" disabled={busy} onClick={() => run(async () => { setData(await window.api.finish(active.id, note)); setNote(''); setCard(null) })}>終了する</button>
-              </> : <button className="primary-button" disabled={!card || busy} onClick={() => run(async () => { await window.api.start(card!.id); setData(await window.api.state()); setNow(Date.now()) })}>はじめる</button>}
+                <textarea id="session-note" value={note} maxLength={1000} onChange={event => setNote(event.target.value)} placeholder="途中の気づきを残す" />
+                <button className="primary-button" disabled={busy} onClick={() => run(async () => { noteTransition.current = true; try { await noteSaveQueue.current; const result = await window.api.finish(active.id, note); setData(result); setCompletedSessionId(active.id); setNote(result.sessions.find(s => s.id === active.id)?.note ?? '') } finally { noteTransition.current = false } })}>終了する</button>
+              </> : <button className="primary-button" disabled={!card || busy} onClick={() => run(async () => { const sessionId = await window.api.start(card!.id); const state = await window.api.state(); setData(state); setNote(state.sessions.find(s => s.id === sessionId)?.note ?? ''); setNow(Date.now()) })}>はじめる</button>}
             </div>
           </> : <div className="empty-card"><strong>カードがありません</strong><p>デッキからカードを追加してください。</p></div>}
         </div>
-        {!active && shownCard && <div className="scroll-cue" aria-hidden="true">↓</div>}
+        {!active && (shownCard || completed) && <div className="scroll-cue" aria-hidden="true">↓</div>}
       </section>
-      {lastResult && <div className="last-result"><span>前回</span><strong>{lastResult.cardTitle}</strong><span>Lv {lastResult.level}　+{formatExp(lastResult.exp ?? 0)} EXP</span></div>}
+      {lastResult && !completed && <div className="last-result"><span>前回</span><strong>{lastResult.cardTitle}</strong><span>Lv {lastResult.level}　+{formatExp(lastResult.exp ?? 0)} EXP</span></div>}
     </main>}
 
     {tab === 'history' && <main className="page-layout">

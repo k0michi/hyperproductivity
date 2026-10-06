@@ -115,6 +115,20 @@ void app.whenReady().then(() => {
     } catch (error) { db.exec('ROLLBACK'); throw error }
     return snapshot()
   })
+  ipcMain.handle('save-note', (_event, sessionId: string, note: string) => {
+    const session = db.prepare('SELECT deck_id, card_id, note FROM sessions WHERE id = ?').get(sessionId) as { deck_id: string; card_id: string; note: string } | undefined
+    if (!session) throw new Error('セッションが見つかりません')
+    const savedNote = note.slice(0, 1000)
+    if (savedNote !== session.note) {
+      db.exec('BEGIN')
+      try {
+        db.prepare('UPDATE sessions SET note = ? WHERE id = ?').run(savedNote, sessionId)
+        record('note_updated', session.deck_id, session.card_id, sessionId, { note: savedNote })
+        db.exec('COMMIT')
+      } catch (error) { db.exec('ROLLBACK'); throw error }
+    }
+    return snapshot()
+  })
   ipcMain.handle('add-deck', (_event, name: string) => {
     const trimmed = name.trim().slice(0, 40); if (!trimmed) throw new Error('名前を入力してください')
     const id = uid(); db.prepare('INSERT INTO decks VALUES (?, ?, ?)').run(id, trimmed, '#b8a6e8')
