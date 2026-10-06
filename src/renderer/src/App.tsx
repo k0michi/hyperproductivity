@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { AppStore } from './appStore'
+import { AppStore, type PlayMode } from './appStore'
 import { DecksView } from './components/DecksView'
 import { HistoryView } from './components/HistoryView'
 import { PlayView } from './components/PlayView'
@@ -14,7 +14,7 @@ const RECENT_CARD_LIMIT = 11 // Current card plus up to ten previous cards.
 export default function App() {
   const store = useWatcher(AppStore)
   const { t } = useI18n()
-  const { data, tab, deckId, card, feedHistory, feedIndex, completedSessionId, note, busy } = store
+  const { data, tab, playMode, deckId, selectedCardId, card, feedHistory, feedIndex, completedSessionId, note, busy } = store
   const active = data?.sessions.find(session => session.endedAt === null)
   const completed = data?.sessions.find(session => session.id === completedSessionId)
   const navigationLock = useRef(false)
@@ -28,18 +28,20 @@ export default function App() {
       if (!alive) return
       const running = state.sessions.find(session => session.endedAt === null)
       const runningCard = running && state.cards.find(item => item.id === running.cardId)
-      store.set({ data: state, deckId: running?.deckId ?? state.decks[0]?.id ?? '', card: runningCard || null, feedHistory: runningCard ? [{ card: runningCard, completedSessionId: null }] : [], feedIndex: runningCard ? 0 : -1, note: running?.note ?? '' })
+      store.set({ data: state, deckId: running?.deckId ?? state.decks[0]?.id ?? '', selectedCardId: running?.cardId ?? state.cards[0]?.id ?? '', card: runningCard || null, feedHistory: runningCard ? [{ card: runningCard, completedSessionId: null }] : [], feedIndex: runningCard ? 0 : -1, note: running?.note ?? '' })
     }).catch(error => store.set({ notice: String(error) }))
     return () => { alive = false }
   }, [])
 
   useEffect(() => {
-    if (!deckId || active || completedSessionId || feedHistory.length || drawLock.current) return
+    if (!data || active || completedSessionId || feedHistory.length || drawLock.current) return
+    if ((playMode === 'deck' && !deckId) || (playMode === 'card' && !selectedCardId)) return
     let alive = true
     store.set({ card: null })
-    window.api.draw(deckId).then(next => { if (alive) store.set({ card: next, feedHistory: next ? [{ card: next, completedSessionId: null }] : [], feedIndex: next ? 0 : -1 }) }).catch(error => store.set({ notice: String(error) }))
+    const request = playMode === 'card' ? window.api.presentCard(selectedCardId) : window.api.draw(playMode === 'all' ? null : deckId)
+    request.then(next => { if (alive) store.set({ card: next, feedHistory: next ? [{ card: next, completedSessionId: null }] : [], feedIndex: next ? 0 : -1 }) }).catch(error => store.set({ notice: String(error) }))
     return () => { alive = false }
-  }, [deckId, active?.id, completedSessionId, feedHistory.length])
+  }, [playMode, deckId, selectedCardId, active?.id, completedSessionId, feedHistory.length])
 
   function saveNote(sessionId: string, value: string): Promise<void> {
     const pending = noteSaveQueue.current.catch(() => {}).then(async () => {
@@ -69,6 +71,7 @@ export default function App() {
 
   async function navigateCard(direction: 'next' | 'previous'): Promise<void> {
     if ((!card && !completed) || active || busy || navigationLock.current || (direction === 'previous' && feedIndex <= 0)) return
+    if (direction === 'next' && playMode === 'card' && !completed && feedIndex === feedHistory.length - 1) return
     navigationLock.current = true
     drawLock.current = true
     noteTransition.current = true
@@ -83,7 +86,10 @@ export default function App() {
         const targetSession = store.data?.sessions.find(session => session.id === existing.completedSessionId)
         store.set({ card: existing.card, feedIndex: targetIndex, completedSessionId: existing.completedSessionId, note: targetSession?.note ?? '', motion: direction === 'previous' ? 'entering-back' : 'entering' })
       } else {
-        const next = completed ? await window.api.draw(deckId, completed.cardId) : await window.api.skip(card!.id)
+        const scopeDeckId = playMode === 'all' ? null : deckId
+        const next = playMode === 'card'
+          ? await window.api.presentCard(selectedCardId)
+          : completed ? await window.api.draw(scopeDeckId, completed.cardId) : await window.api.skip(card!.id, scopeDeckId)
         const history = next ? [...feedHistory, { card: next, completedSessionId: null }].slice(-RECENT_CARD_LIMIT) : feedHistory
         store.set({ card: next, feedHistory: history, feedIndex: next ? history.length - 1 : feedIndex, completedSessionId: null, note: '', motion: 'entering' })
       }
@@ -98,8 +104,35 @@ export default function App() {
     }
   }
 
-  function changeDeck(id: string): void {
-    if (!active && !completed && !navigationLock.current && id !== deckId) store.set({ card: null, deckId: id, feedHistory: [], feedIndex: -1, note: '' })
+  async function changeSelection(mode: PlayMode, nextDeckId = deckId, nextCardId = selectedCardId): Promise<void> {
+    if (active || busy || navigationLock.current) return
+    if (!completed && mode === playMode && nextDeckId === deckId && nextCardId === selectedCardId) return
+    navigationLock.current = true
+    noteTransition.current = true
+    store.set({ busy: true })
+    try {
+      if (completed) {
+        await noteSaveQueue.current
+        if (note !== store.data?.sessions.find(session => session.id === completed.id)?.note) await saveNote(completed.id, note)
+      }
+      navigationLock.current = false
+      store.set({ playMode: mode, deckId: nextDeckId, selectedCardId: mode === 'card' ? nextCardId || data?.cards[0]?.id || '' : nextCardId, card: null, feedHistory: [], feedIndex: -1, completedSessionId: null, note: '', busy: false })
+    } catch (error) {
+      store.set({ notice: error instanceof Error ? error.message : String(error), busy: false })
+    } finally {
+      navigationLock.current = false
+      noteTransition.current = false
+    }
+  }
+
+  function changeDeck(id: string): void { void changeSelection('deck', id) }
+
+  function changeMode(mode: PlayMode): void { void changeSelection(mode) }
+
+  function selectCard(id: string): void { void changeSelection('card', deckId, id) }
+
+  function manageDeck(id: string): void {
+    if (!active && !completed && !navigationLock.current && id !== deckId) store.set(playMode === 'deck' ? { deckId: id, card: null, feedHistory: [], feedIndex: -1, note: '' } : { deckId: id })
   }
 
   async function start(cardId: string): Promise<void> {
@@ -129,9 +162,9 @@ export default function App() {
   return <div className="app-shell">
     <TopBar />
     {store.notice && <div className="notice" role="alert">{store.notice}<button onClick={() => store.set({ notice: '' })}>×</button></div>}
-    {tab === 'play' && <PlayView onNavigate={navigateCard} onChangeDeck={changeDeck} onStart={start} onFinish={finish} />}
+    {tab === 'play' && <PlayView onNavigate={navigateCard} onChangeMode={changeMode} onChangeDeck={changeDeck} onSelectCard={selectCard} onStart={start} onFinish={finish} />}
     {tab === 'history' && <HistoryView />}
-    {tab === 'decks' && <DecksView onChangeDeck={changeDeck} run={run} />}
+    {tab === 'decks' && <DecksView onChangeDeck={manageDeck} run={run} />}
     {tab === 'settings' && <SettingsView />}
   </div>
 }

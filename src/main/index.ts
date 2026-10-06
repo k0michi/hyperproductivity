@@ -57,14 +57,14 @@ function setupDatabase(): void {
     }
   }
 }
-function chooseCard(deckId: string, excludeId?: string): Card | null {
-  const cards = allCards().filter(c => c.deckId === deckId)
+function chooseCard(deckId: string | null, excludeId?: string): Card | null {
+  const cards = allCards().filter(c => deckId === null || c.deckId === deckId)
   if (!cards.length) return null
   const pool = cards.length > 1 ? cards.filter(c => c.id !== excludeId) : cards
   const total = pool.reduce((sum, c) => sum + c.weight, 0)
   let pick = Math.random() * total
   const selected = pool.find(c => (pick -= c.weight) <= 0) ?? pool[pool.length - 1]
-  record('presented', deckId, selected.id, null, { title: selected.title })
+  record('presented', selected.deckId, selected.id, null, { title: selected.title, source: deckId === null ? 'all' : 'deck' })
   return selected
 }
 function createWindow(): void {
@@ -77,13 +77,19 @@ app.setAppUserModelId('com.koyomiji.hyperproductivity')
 void app.whenReady().then(() => {
   setupDatabase()
   ipcMain.handle('state', () => snapshot())
-  ipcMain.handle('draw', (_event, deckId: string, excludeId?: string) => chooseCard(deckId, excludeId))
-  ipcMain.handle('skip', (_event, cardId: string) => {
+  ipcMain.handle('draw', (_event, deckId: string | null, excludeId?: string) => chooseCard(deckId, excludeId))
+  ipcMain.handle('present-card', (_event, cardId: string) => {
+    const card = allCards().find(c => c.id === cardId)
+    if (!card) throw new Error('Card not found')
+    record('presented', card.deckId, card.id, null, { title: card.title, source: 'card' })
+    return card
+  })
+  ipcMain.handle('skip', (_event, cardId: string, deckId: string | null) => {
     const card = allCards().find(c => c.id === cardId)
     if (!card) return null
     db.prepare('UPDATE cards SET skips = skips + 1, weight = MAX(0.2, weight * 0.75) WHERE id = ?').run(cardId)
-    record('skipped', card.deckId, cardId, null)
-    return chooseCard(card.deckId, cardId)
+    record('skipped', card.deckId, cardId, null, { source: deckId === null ? 'all' : 'deck' })
+    return chooseCard(deckId, cardId)
   })
   ipcMain.handle('start', (_event, cardId: string) => {
     const existing = db.prepare('SELECT id FROM sessions WHERE ended_at IS NULL LIMIT 1').get() as { id: string } | undefined

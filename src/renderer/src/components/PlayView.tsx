@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AppStore } from '../appStore'
+import { AppStore, type PlayMode } from '../appStore'
 import { formatExp, formatTime } from '../format'
 import { useI18n } from '../i18n'
 import { useWatcher } from '../store'
@@ -7,24 +7,27 @@ import { PressableButton } from './PressableButton'
 
 type Props = {
   onNavigate: (direction: 'next' | 'previous') => Promise<void>
+  onChangeMode: (mode: PlayMode) => void
   onChangeDeck: (id: string) => void
+  onSelectCard: (id: string) => void
   onStart: (cardId: string) => Promise<void>
   onFinish: (sessionId: string, note: string) => Promise<void>
 }
 
-export function PlayView({ onNavigate, onChangeDeck, onStart, onFinish }: Props) {
+export function PlayView({ onNavigate, onChangeMode, onChangeDeck, onSelectCard, onStart, onFinish }: Props) {
   const store = useWatcher(AppStore)
   const { locale, t } = useI18n()
   const [now, setNow] = useState(Date.now())
   const feedRef = useRef<HTMLElement | null>(null)
   const wheelDistance = useRef(0)
   const touchStart = useRef<number | null>(null)
-  const { data, deckId, card, feedIndex, completedSessionId, note, busy, motion } = store
+  const { data, playMode, deckId, selectedCardId, card, feedHistory, feedIndex, completedSessionId, note, busy, motion } = store
   const active = data?.sessions.find(session => session.endedAt === null)
   const completed = data?.sessions.find(session => session.id === completedSessionId)
-  const currentDeck = data?.decks.find(deck => deck.id === deckId)
   const activeCard = active && data?.cards.find(item => item.id === active.cardId)
   const shownCard = activeCard ?? card
+  const shownDeck = data?.decks.find(deck => deck.id === shownCard?.deckId)
+  const canGoNext = playMode !== 'card' || !!completed || feedIndex < feedHistory.length - 1
   const elapsed = active ? Math.max(0, now - active.startedAt) : 0
   const currentLevel = elapsed >= 2700000 ? 4 : elapsed >= 900000 ? 3 : elapsed >= 180000 ? 2 : 1
   const lastResult = data?.sessions.find(session => session.endedAt !== null)
@@ -52,13 +55,17 @@ export function PlayView({ onNavigate, onChangeDeck, onStart, onFinish }: Props)
   return <main className="play-layout">
     <div className="page-head">
       <h1>{active ? t('inProgress') : completed ? t('completed') : t('actionCard')}</h1>
-      <div className="deck-pills">{data.decks.map(deck => <button key={deck.id} disabled={!!active || !!completed} className={deckId === deck.id ? 'deck-pill selected' : 'deck-pill'} onClick={() => onChangeDeck(deck.id)}>{deck.name}</button>)}</div>
+      <div className="mode-picker" role="group" aria-label={t('play')}>
+        {(['all', 'deck', 'card'] as PlayMode[]).map(mode => <button key={mode} disabled={!!active || busy} className={playMode === mode ? 'mode-option selected' : 'mode-option'} aria-pressed={playMode === mode} onClick={() => onChangeMode(mode)}>{t(mode === 'all' ? 'allMode' : mode === 'deck' ? 'deckMode' : 'cardMode')}</button>)}
+      </div>
     </div>
+    {playMode === 'deck' && <div className="mode-detail deck-pills">{data.decks.map(deck => <button key={deck.id} disabled={!!active || busy} className={deckId === deck.id ? 'deck-pill selected' : 'deck-pill'} onClick={() => onChangeDeck(deck.id)}>{deck.name}</button>)}</div>}
+    {playMode === 'card' && <div className="mode-detail card-picker"><label htmlFor="selected-card">{t('chooseCard')}</label><select id="selected-card" value={selectedCardId} disabled={!!active || busy} onChange={event => onSelectCard(event.target.value)}>{!selectedCardId && <option value="">{t('chooseCard')}</option>}{data.decks.map(deck => <optgroup key={deck.id} label={deck.name}>{data.cards.filter(item => item.deckId === deck.id).map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</optgroup>)}</select></div>}
     <section
       ref={feedRef}
       className="feed-stage"
       tabIndex={0}
-      aria-label={completed ? t(feedIndex > 0 ? 'completedFeedWithBack' : 'completedFeed') : t(feedIndex > 0 ? 'cardFeedWithBack' : 'cardFeed')}
+      aria-label={completed ? t(feedIndex > 0 ? 'completedFeedWithBack' : 'completedFeed') : canGoNext ? t(feedIndex > 0 ? 'cardFeedWithBack' : 'cardFeed') : t(feedIndex > 0 ? 'selectedCardFeedWithBack' : 'selectedCardFeed')}
       onTouchStart={event => { touchStart.current = (event.target as HTMLElement).closest('textarea, button') ? null : event.touches[0]?.clientY ?? null }}
       onTouchEnd={event => {
         if (touchStart.current !== null) {
@@ -79,7 +86,7 @@ export function PlayView({ onNavigate, onChangeDeck, onStart, onFinish }: Props)
           <div className="completion-result"><div><span>Lv</span><strong>{completed.level}</strong></div><div><span>EXP</span><strong>+{formatExp(completed.exp ?? 0, locale)}</strong></div><div><span>{t('time')}</span><strong>{formatTime(completed.durationMs ?? 0)}</strong></div></div>
           <div className="completion-note"><label className="field-label" htmlFor="completion-note">{t('note')} <span>{t('optional')}</span></label><textarea id="completion-note" value={note} maxLength={1000} onChange={event => store.set({ note: event.target.value })} placeholder={t('reflectionPlaceholder')} /></div>
         </> : shownCard ? <>
-          <div className="card-copy"><span>{currentDeck?.name ?? active?.deckName}</span><h2>{shownCard.title}</h2><p>{shownCard.cue}</p></div>
+          <div className="card-copy"><span>{shownDeck?.name ?? active?.deckName}</span><h2>{shownCard.title}</h2><p>{shownCard.cue}</p></div>
           <div className="goals">{shownCard.goals.map((goal, index) => <div className="goal" key={index}><b className={active && currentLevel === index + 1 ? 'lit' : ''}>Lv {index + 1}</b><span>{goal || t('freeGoal')}</span></div>)}</div>
           <div className="feed-controls">
             {active ? <>
@@ -91,7 +98,7 @@ export function PlayView({ onNavigate, onChangeDeck, onStart, onFinish }: Props)
           </div>
         </> : <div className="empty-card"><strong>{t('noCards')}</strong><p>{t('addCardHint')}</p></div>}
       </div>
-      {!active && (shownCard || completed) && <div className="scroll-cue" aria-hidden="true">↓</div>}
+      {!active && canGoNext && (shownCard || completed) && <div className="scroll-cue" aria-hidden="true">↓</div>}
       {!active && feedIndex > 0 && <div className="back-cue" aria-hidden="true">↑</div>}
     </section>
     {lastResult && !completed && <div className="last-result"><span>{t('previous')}</span><strong>{lastResult.cardTitle}</strong><span>Lv {lastResult.level}　+{formatExp(lastResult.exp ?? 0, locale)} EXP</span></div>}

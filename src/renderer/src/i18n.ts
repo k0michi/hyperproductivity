@@ -5,9 +5,12 @@ import { useReader, useSelector } from './store'
 export const messages = {
   ja: {
     loading: '読み込み中', menu: 'メインメニュー', play: '行動', history: '記録', decks: 'デッキ',
+    allMode: '全ランダム', deckMode: 'デッキを選ぶ', cardMode: 'カードを指定', chooseCard: 'カードを選ぶ',
     actionCard: '行動カード', inProgress: '取り組み中', completed: '完了',
     cardFeed: '行動カード。下にスクロールすると次のカード',
     cardFeedWithBack: '行動カード。上にスクロールすると前のカード、下にスクロールすると次のカード',
+    selectedCardFeed: '指定した行動カード。開始できます',
+    selectedCardFeedWithBack: '指定した行動カード。上にスクロールすると前のカードに戻れます',
     completedFeed: '完了結果。下にスクロールすると次のカード',
     completedFeedWithBack: '完了結果。上にスクロールすると前のカード、下にスクロールすると次のカード',
     time: '時間', note: 'メモ', optional: '任意', reflectionPlaceholder: '振り返りを残す',
@@ -23,9 +26,12 @@ export const messages = {
   },
   en: {
     loading: 'Loading', menu: 'Main menu', play: 'Actions', history: 'History', decks: 'Decks',
+    allMode: 'All random', deckMode: 'Choose a deck', cardMode: 'Choose a card', chooseCard: 'Select a card',
     actionCard: 'Action card', inProgress: 'In progress', completed: 'Complete',
     cardFeed: 'Action card. Scroll down for the next card',
     cardFeedWithBack: 'Action card. Scroll up for the previous card, or down for the next card',
+    selectedCardFeed: 'Selected action card. Ready to start',
+    selectedCardFeedWithBack: 'Selected action card. Scroll up for the previous card',
     completedFeed: 'Completed action. Scroll down for the next card',
     completedFeedWithBack: 'Completed action. Scroll up for the previous card, or down for the next card',
     time: 'Time', note: 'Note', optional: 'Optional', reflectionPlaceholder: 'Add a reflection',

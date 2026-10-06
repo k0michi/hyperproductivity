@@ -2,8 +2,9 @@ import type { Card, State } from './appStore'
 
 export type Api = {
   state: () => Promise<State>
-  draw: (deckId: string, excludeId?: string) => Promise<Card | null>
-  skip: (cardId: string) => Promise<Card | null>
+  draw: (deckId: string | null, excludeId?: string) => Promise<Card | null>
+  presentCard: (cardId: string) => Promise<Card>
+  skip: (cardId: string, deckId: string | null) => Promise<Card | null>
   start: (cardId: string) => Promise<string>
   finish: (sessionId: string, note: string) => Promise<State>
   saveNote: (sessionId: string, note: string) => Promise<State>
