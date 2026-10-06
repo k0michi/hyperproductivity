@@ -8,6 +8,7 @@ import { TopBar } from './components/TopBar'
 import { useI18n } from './i18n'
 import { useWatcher } from './store'
 import './api'
+import styles from './App.module.css'
 
 const RECENT_CARD_LIMIT = 11 // Current card plus up to ten previous cards.
 
@@ -158,10 +159,10 @@ export default function App() {
     })
   }
 
-  if (!data) return <main className="loading">{t('loading')}</main>
-  return <div className="app-shell">
+  if (!data) return <main className={styles['loading']}>{t('loading')}</main>
+  return <div className={styles['app-shell']}>
     <TopBar />
-    {store.notice && <div className="notice" role="alert">{store.notice}<button onClick={() => store.set({ notice: '' })}>×</button></div>}
+    {store.notice && <div className={styles['notice']} role="alert">{store.notice}<button onClick={() => store.set({ notice: '' })}>×</button></div>}
     {tab === 'play' && <PlayView onNavigate={navigateCard} onChangeMode={changeMode} onChangeDeck={changeDeck} onSelectCard={selectCard} onStart={start} onFinish={finish} />}
     {tab === 'history' && <HistoryView />}
     {tab === 'decks' && <DecksView onChangeDeck={manageDeck} run={run} />}

@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { AppStore } from './appStore'
 import { StoreProvider } from './store'
-import './style.css'
+import './base.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

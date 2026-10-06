@@ -1,4 +1,5 @@
 import { useState, type ButtonHTMLAttributes } from 'react'
+import styles from './PressableButton.module.css'
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   size?: 'large' | 'compact'
@@ -11,7 +12,7 @@ export function PressableButton({ size = 'large', tone = 'default', className = 
     {...rest}
     type={type}
     disabled={disabled}
-    className={`pressable-button pressable-button--${size} pressable-button--${tone} ${className}`.trim()}
+    className={`${styles['pressable-button']} ${styles[`pressable-button--${size}`]} ${tone === 'danger' ? styles['pressable-button--danger'] : ''} ${className}`.trim()}
     data-pressed={pressed || undefined}
     onPointerDown={event => { if (!disabled) setPressed(true); onPointerDown?.(event) }}
     onPointerUp={event => { setPressed(false); onPointerUp?.(event) }}

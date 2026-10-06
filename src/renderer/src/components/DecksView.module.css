@@ -1,0 +1,18 @@
+.mini-card { user-select: text; -webkit-user-select: text; }
+.decks-layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: start; }
+.deck-list h2, .cards-workshop h2 { margin-bottom: 20px; }
+.deck-list-item { width: 100%; display: flex; justify-content: space-between; text-align: left; padding: 13px 10px; border: 0; border-bottom: 1px solid #edf0ec; background: transparent; color: #3c453c; font-size: 13px; }
+.deck-list-item.chosen { background: #edf3eb; }
+.deck-list-item small { color: #929b91; }
+.deck-list form, .cards-workshop form { border-top: 1px solid #e9ede8; margin-top: 28px; padding-top: 22px; }
+.inline-input { display: flex; gap: 7px; }
+.inline-input input { min-width: 0; flex: 1; }
+.mini-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.mini-card { border: 1px solid #e7ebe4; border-radius: 6px; padding: 15px; }
+.mini-card b { display: block; font-size: 13px; }
+.mini-card small { display: block; color: #909890; font-size: 11px; margin-top: 6px; }
+.form-grid, .goal-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-grid label, .goal-inputs label { display: flex; flex-direction: column; gap: 6px; color: #70796f; font-size: 11px; }
+.form-grid input, .goal-inputs input { width: 100%; font-size: 12px; }
+.goal-inputs { margin: 14px 0 18px; }
+.cards-workshop .add-action { width: auto; padding: 0 25px; min-height: 42px; }
