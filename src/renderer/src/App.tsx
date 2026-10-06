@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useI18n, type Locale } from './i18n'
 
 type Deck = { id: string; name: string; color: string }
 type Card = { id: string; deckId: string; title: string; cue: string; goals: string[]; weight: number }
@@ -9,12 +10,12 @@ declare global { interface Window { api: Api } }
 
 const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 const formatTime = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, '0')}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`
-const formatExp = (value: number) => value.toLocaleString('ja-JP', { maximumFractionDigits: 1 })
-const formatDate = (key: string) => new Date(`${key}T00:00:00`).toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })
-
 export default function App() {
+  const { locale, setLocale, t } = useI18n()
+  const formatExp = (value: number) => value.toLocaleString(locale === 'ja' ? 'ja-JP' : 'en-US', { maximumFractionDigits: 1 })
+  const formatDate = (key: string) => new Date(`${key}T00:00:00`).toLocaleDateString(locale === 'ja' ? 'ja-JP' : 'en-US', { month: 'long', day: 'numeric', weekday: 'short' })
   const [data, setData] = useState<State | null>(null)
-  const [tab, setTab] = useState<'play' | 'history' | 'decks'>('play')
+  const [tab, setTab] = useState<'play' | 'history' | 'decks' | 'settings'>('play')
   const [deckId, setDeckId] = useState('')
   const [card, setCard] = useState<Card | null>(null)
   const [completedSessionId, setCompletedSessionId] = useState<string | null>(null)
@@ -146,15 +147,16 @@ export default function App() {
   }, [data])
   const selectedSessions = earned.filter(s => s.localDate === selectedDate)
 
-  if (!data) return <main className="loading">読み込み中</main>
+  if (!data) return <main className="loading">{t('loading')}</main>
 
   return <div className="app-shell">
     <header className="topbar">
       <strong className="brand">Hyperproductivity</strong>
-      <nav aria-label="メインメニュー">
-        <button className={tab === 'play' ? 'nav active' : 'nav'} onClick={() => setTab('play')}>行動</button>
-        <button className={tab === 'history' ? 'nav active' : 'nav'} onClick={() => setTab('history')}>記録</button>
-        <button className={tab === 'decks' ? 'nav active' : 'nav'} onClick={() => setTab('decks')}>デッキ</button>
+      <nav aria-label={t('menu')}>
+        <button className={tab === 'play' ? 'nav active' : 'nav'} onClick={() => setTab('play')}>{t('play')}</button>
+        <button className={tab === 'history' ? 'nav active' : 'nav'} onClick={() => setTab('history')}>{t('history')}</button>
+        <button className={tab === 'decks' ? 'nav active' : 'nav'} onClick={() => setTab('decks')}>{t('decks')}</button>
+        <button className={tab === 'settings' ? 'nav active' : 'nav'} onClick={() => setTab('settings')}>{t('settings')}</button>
       </nav>
       <div className="exp-counter"><strong>{formatExp(data.totalExp)}</strong><span>EXP</span></div>
     </header>
@@ -162,14 +164,14 @@ export default function App() {
 
     {tab === 'play' && <main className="play-layout">
       <div className="page-head">
-        <h1>{active ? '取り組み中' : completed ? '完了' : '行動カード'}</h1>
+        <h1>{active ? t('inProgress') : completed ? t('completed') : t('actionCard')}</h1>
         <div className="deck-pills">{data.decks.map(d => <button key={d.id} disabled={!!active || !!completed} className={deckId === d.id ? 'deck-pill selected' : 'deck-pill'} onClick={() => changeDeck(d.id)}>{d.name}</button>)}</div>
       </div>
       <section
         ref={feedRef}
         className="feed-stage"
         tabIndex={0}
-        aria-label={completed ? '完了結果。下にスクロールすると次のカード' : '行動カード。下にスクロールすると次のカード'}
+        aria-label={completed ? t('completedFeed') : t('cardFeed')}
         onTouchStart={event => { touchStart.current = (event.target as HTMLElement).closest('textarea, button') ? null : event.touches[0]?.clientY ?? null }}
         onTouchEnd={event => {
           if (touchStart.current !== null && touchStart.current - (event.changedTouches[0]?.clientY ?? touchStart.current) > 65) void skipCard()
@@ -182,52 +184,60 @@ export default function App() {
       >
         <div className={`feed-card ${motion} ${completed ? 'completed-card' : ''}`}>
           {completed ? <>
-            <div className="completion-heading"><span>{completed.cardTitle}</span><h2>完了</h2></div>
-            <div className="completion-result"><div><span>Lv</span><strong>{completed.level}</strong></div><div><span>EXP</span><strong>+{formatExp(completed.exp ?? 0)}</strong></div><div><span>時間</span><strong>{formatTime(completed.durationMs ?? 0)}</strong></div></div>
-            <div className="completion-note"><label className="field-label" htmlFor="completion-note">メモ <span>任意</span></label><textarea id="completion-note" value={note} maxLength={1000} onChange={event => setNote(event.target.value)} placeholder="振り返りを残す" /></div>
+            <div className="completion-heading"><span>{completed.cardTitle}</span><h2>{t('completed')}</h2></div>
+            <div className="completion-result"><div><span>Lv</span><strong>{completed.level}</strong></div><div><span>EXP</span><strong>+{formatExp(completed.exp ?? 0)}</strong></div><div><span>{t('time')}</span><strong>{formatTime(completed.durationMs ?? 0)}</strong></div></div>
+            <div className="completion-note"><label className="field-label" htmlFor="completion-note">{t('note')} <span>{t('optional')}</span></label><textarea id="completion-note" value={note} maxLength={1000} onChange={event => setNote(event.target.value)} placeholder={t('reflectionPlaceholder')} /></div>
           </> : shownCard ? <>
             <div className="card-copy"><span>{currentDeck?.name ?? active?.deckName}</span><h2>{shownCard.title}</h2><p>{shownCard.cue}</p></div>
-            <div className="goals">{shownCard.goals.map((goal, i) => <div className="goal" key={i}><b className={active && currentLevel === i + 1 ? 'lit' : ''}>Lv {i + 1}</b><span>{goal || '自由に取り組む'}</span></div>)}</div>
+            <div className="goals">{shownCard.goals.map((goal, i) => <div className="goal" key={i}><b className={active && currentLevel === i + 1 ? 'lit' : ''}>Lv {i + 1}</b><span>{goal || t('freeGoal')}</span></div>)}</div>
             <div className="feed-controls">
               {active ? <>
                 <div className="timer">{formatTime(elapsed)} <span>Lv {currentLevel}</span></div>
-                <label className="field-label" htmlFor="session-note">メモ <span>任意</span></label>
-                <textarea id="session-note" value={note} maxLength={1000} onChange={event => setNote(event.target.value)} placeholder="途中の気づきを残す" />
-                <button className="primary-button" disabled={busy} onClick={() => run(async () => { noteTransition.current = true; try { await noteSaveQueue.current; const result = await window.api.finish(active.id, note); setData(result); setCompletedSessionId(active.id); setNote(result.sessions.find(s => s.id === active.id)?.note ?? '') } finally { noteTransition.current = false } })}>終了する</button>
-              </> : <button className="primary-button" disabled={!card || busy} onClick={() => run(async () => { const sessionId = await window.api.start(card!.id); const state = await window.api.state(); setData(state); setNote(state.sessions.find(s => s.id === sessionId)?.note ?? ''); setNow(Date.now()) })}>はじめる</button>}
+                <label className="field-label" htmlFor="session-note">{t('note')} <span>{t('optional')}</span></label>
+                <textarea id="session-note" value={note} maxLength={1000} onChange={event => setNote(event.target.value)} placeholder={t('progressPlaceholder')} />
+                <button className="primary-button" disabled={busy} onClick={() => run(async () => { noteTransition.current = true; try { await noteSaveQueue.current; const result = await window.api.finish(active.id, note); setData(result); setCompletedSessionId(active.id); setNote(result.sessions.find(s => s.id === active.id)?.note ?? '') } finally { noteTransition.current = false } })}>{t('finish')}</button>
+              </> : <button className="primary-button" disabled={!card || busy} onClick={() => run(async () => { const sessionId = await window.api.start(card!.id); const state = await window.api.state(); setData(state); setNote(state.sessions.find(s => s.id === sessionId)?.note ?? ''); setNow(Date.now()) })}>{t('start')}</button>}
             </div>
-          </> : <div className="empty-card"><strong>カードがありません</strong><p>デッキからカードを追加してください。</p></div>}
+          </> : <div className="empty-card"><strong>{t('noCards')}</strong><p>{t('addCardHint')}</p></div>}
         </div>
         {!active && (shownCard || completed) && <div className="scroll-cue" aria-hidden="true">↓</div>}
       </section>
-      {lastResult && !completed && <div className="last-result"><span>前回</span><strong>{lastResult.cardTitle}</strong><span>Lv {lastResult.level}　+{formatExp(lastResult.exp ?? 0)} EXP</span></div>}
+      {lastResult && !completed && <div className="last-result"><span>{t('previous')}</span><strong>{lastResult.cardTitle}</strong><span>Lv {lastResult.level}　+{formatExp(lastResult.exp ?? 0)} EXP</span></div>}
     </main>}
 
     {tab === 'history' && <main className="page-layout">
-      <h1>記録</h1>
+      <h1>{t('history')}</h1>
       <section className="panel history-panel">
-        <div className="panel-title"><h2>行動の記録</h2><span>着手回数</span></div>
-        <div className="heatmap" role="grid" aria-label="日別の行動記録">{heatmap.map(day => <button key={day.key} title={`${formatDate(day.key)}: ${day.count}回 / ${formatExp(day.exp)} EXP`} aria-label={`${formatDate(day.key)} ${day.count}回 ${formatExp(day.exp)} EXP`} className={`heat-cell heat-${Math.min(4, day.count)} ${selectedDate === day.key ? 'picked' : ''}`} onClick={() => setSelectedDate(day.key)} />)}</div>
-        <div className="legend"><span>少</span><i/><i/><i/><i/><i/><span>多</span></div>
+        <div className="panel-title"><h2>{t('actionHistory')}</h2><span>{t('starts')}</span></div>
+        <div className="heatmap" role="grid" aria-label={t('dailyHistory')}>{heatmap.map(day => <button key={day.key} title={t('daySummary', { date: formatDate(day.key), count: day.count, exp: formatExp(day.exp) })} aria-label={t('dayAria', { date: formatDate(day.key), count: day.count, exp: formatExp(day.exp) })} className={`heat-cell heat-${Math.min(4, day.count)} ${selectedDate === day.key ? 'picked' : ''}`} onClick={() => setSelectedDate(day.key)} />)}</div>
+        <div className="legend"><span>{t('less')}</span><i/><i/><i/><i/><i/><span>{t('more')}</span></div>
       </section>
       <div className="history-bottom">
-        <section className="panel day-panel"><div className="panel-title"><h2>{formatDate(selectedDate)}</h2><span>{selectedSessions.length}回</span></div>
-          {selectedSessions.length ? selectedSessions.map(s => <div className="session-row" key={s.id}><span className="session-level">Lv {s.level}</span><div><strong>{s.cardTitle}</strong><small>{s.deckName} · {new Date(s.startedAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} · {formatTime(s.durationMs ?? 0)}</small>{s.note && <p>{s.note}</p>}</div><b>+{formatExp(s.exp ?? 0)}</b></div>) : <p className="quiet">記録はありません</p>}
+        <section className="panel day-panel"><div className="panel-title"><h2>{formatDate(selectedDate)}</h2><span>{t('count', { count: selectedSessions.length })}</span></div>
+          {selectedSessions.length ? selectedSessions.map(s => <div className="session-row" key={s.id}><span className="session-level">Lv {s.level}</span><div><strong>{s.cardTitle}</strong><small>{s.deckName} · {new Date(s.startedAt).toLocaleTimeString(locale === 'ja' ? 'ja-JP' : 'en-US', { hour: '2-digit', minute: '2-digit' })} · {formatTime(s.durationMs ?? 0)}</small>{s.note && <p>{s.note}</p>}</div><b>+{formatExp(s.exp ?? 0)}</b></div>) : <p className="quiet">{t('noRecords')}</p>}
         </section>
-        <section className="panel totals-panel"><div><small>累計EXP</small><strong>{formatExp(data.totalExp)}</strong></div><div><small>行動回数</small><strong>{earned.length}</strong></div></section>
+        <section className="panel totals-panel"><div><small>{t('totalExp')}</small><strong>{formatExp(data.totalExp)}</strong></div><div><small>{t('actionCount')}</small><strong>{earned.length}</strong></div></section>
       </div>
     </main>}
 
     {tab === 'decks' && <main className="page-layout">
-      <h1>デッキ</h1>
+      <h1>{t('decks')}</h1>
       <div className="decks-layout">
-        <section className="panel deck-list"><h2>デッキ一覧</h2>{data.decks.map(d => <button key={d.id} className={deckId === d.id ? 'deck-list-item chosen' : 'deck-list-item'} onClick={() => changeDeck(d.id)}><span>{d.name}</span><small>{data.cards.filter(c => c.deckId === d.id).length}枚</small></button>)}
-          <form onSubmit={e => { e.preventDefault(); void run(async () => { const state = await window.api.addDeck(newDeck); setData(state); setNewDeck('') }) }}><label className="field-label" htmlFor="deck-name">新しいデッキ</label><div className="inline-input"><input id="deck-name" value={newDeck} onChange={e => setNewDeck(e.target.value)} placeholder="デッキ名" maxLength={40}/><button className="small-button" disabled={busy || !newDeck.trim()}>追加</button></div></form>
+        <section className="panel deck-list"><h2>{t('deckList')}</h2>{data.decks.map(d => <button key={d.id} className={deckId === d.id ? 'deck-list-item chosen' : 'deck-list-item'} onClick={() => changeDeck(d.id)}><span>{d.name}</span><small>{t('cardsCount', { count: data.cards.filter(c => c.deckId === d.id).length })}</small></button>)}
+          <form onSubmit={e => { e.preventDefault(); void run(async () => { const state = await window.api.addDeck(newDeck); setData(state); setNewDeck('') }) }}><label className="field-label" htmlFor="deck-name">{t('newDeck')}</label><div className="inline-input"><input id="deck-name" value={newDeck} onChange={e => setNewDeck(e.target.value)} placeholder={t('deckName')} maxLength={40}/><button className="small-button" disabled={busy || !newDeck.trim()}>{t('add')}</button></div></form>
         </section>
-        <section className="panel cards-workshop"><h2>{currentDeck?.name ?? 'デッキを選択'}</h2><div className="mini-cards">{data.cards.filter(c => c.deckId === deckId).map(c => <div className="mini-card" key={c.id}><b>{c.title}</b><small>{c.cue}</small></div>)}</div>
-          <form onSubmit={e => { e.preventDefault(); void run(async () => { setData(await window.api.addCard(deckId, newTitle, newCue, newGoals)); setNewTitle(''); setNewCue(''); setNewGoals(['', '', '', '']) }) }}><h3>カードを追加</h3><div className="form-grid"><label>カード名<input required maxLength={60} value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="カード名"/></label><label>始めるきっかけ<input maxLength={120} value={newCue} onChange={e => setNewCue(e.target.value)} placeholder="任意"/></label></div><div className="goal-inputs">{newGoals.map((goal, i) => <label key={i}>Lv {i + 1}<input value={goal} maxLength={120} onChange={e => setNewGoals(newGoals.map((g, j) => j === i ? e.target.value : g))} placeholder="目安"/></label>)}</div><button className="primary-button" disabled={busy || !deckId || !newTitle.trim()}>追加する</button></form>
+        <section className="panel cards-workshop"><h2>{currentDeck?.name ?? t('chooseDeck')}</h2><div className="mini-cards">{data.cards.filter(c => c.deckId === deckId).map(c => <div className="mini-card" key={c.id}><b>{c.title}</b><small>{c.cue}</small></div>)}</div>
+          <form onSubmit={e => { e.preventDefault(); void run(async () => { setData(await window.api.addCard(deckId, newTitle, newCue, newGoals)); setNewTitle(''); setNewCue(''); setNewGoals(['', '', '', '']) }) }}><h3>{t('addCard')}</h3><div className="form-grid"><label>{t('cardTitle')}<input required maxLength={60} value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder={t('cardTitle')}/></label><label>{t('cue')}<input maxLength={120} value={newCue} onChange={e => setNewCue(e.target.value)} placeholder={t('optional')}/></label></div><div className="goal-inputs">{newGoals.map((goal, i) => <label key={i}>Lv {i + 1}<input value={goal} maxLength={120} onChange={e => setNewGoals(newGoals.map((g, j) => j === i ? e.target.value : g))} placeholder={t('goal')}/></label>)}</div><button className="primary-button" disabled={busy || !deckId || !newTitle.trim()}>{t('addAction')}</button></form>
         </section>
       </div>
+    </main>}
+
+    {tab === 'settings' && <main className="page-layout">
+      <h1>{t('settings')}</h1>
+      <section className="panel settings-panel">
+        <label htmlFor="language-select">{t('language')}</label>
+        <select id="language-select" value={locale} onChange={event => setLocale(event.target.value as Locale)}><option value="ja">日本語</option><option value="en">English</option></select>
+      </section>
     </main>}
   </div>
 }
