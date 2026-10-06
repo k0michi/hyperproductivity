@@ -1,10 +1,66 @@
-.topbar { position: fixed; z-index: 10; top: 0; left: 0; right: 0; height: 74px; display: flex; align-items: center; padding: 0 48px; border-bottom: 1px solid #e3e6df; background: #fff; gap: clamp(24px, 4vw, 72px); user-select: none; -webkit-user-select: none; }
-.brand { font-size: 17px; letter-spacing: -.04em; font-weight: 700; white-space: nowrap; }
-.topbar nav { display: flex; align-self: stretch; gap: 30px; }
-.nav { border: 0; border-bottom: 2px solid transparent; padding: 0 2px; background: transparent; color: #7d837b; font-size: 13px; }
-.nav.active { color: #202320; border-color: #202320; font-weight: 700; }
-.exp-counter { margin-left: auto; display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
-.exp-counter strong { font-size: 21px; font-variant-numeric: tabular-nums; }
-.exp-counter span { color: #8b9189; font-size: 11px; }
-@media (max-width: 900px) { .topbar { padding: 0 24px; gap: 30px; } }
-@media (max-width: 900px) { .topbar nav { gap: 18px; } }
+.topbar {
+  position: fixed;
+  z-index: 10;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 74px;
+  display: flex;
+  align-items: center;
+  padding: 0 48px;
+  border-bottom: 1px solid #e3e6df;
+  background: #fff;
+  gap: clamp(24px, 4vw, 72px);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.brand {
+  font-size: 17px;
+  letter-spacing: -0.04em;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.topbar nav {
+  display: flex;
+  align-self: stretch;
+  gap: 30px;
+}
+.nav {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 0 2px;
+  background: transparent;
+  color: #7d837b;
+  font-size: 13px;
+}
+.nav.active {
+  color: #202320;
+  border-color: #202320;
+  font-weight: 700;
+}
+.exp-counter {
+  margin-left: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+}
+.exp-counter strong {
+  font-size: 21px;
+  font-variant-numeric: tabular-nums;
+}
+.exp-counter span {
+  color: #8b9189;
+  font-size: 11px;
+}
+@media (max-width: 900px) {
+  .topbar {
+    padding: 0 24px;
+    gap: 30px;
+  }
+}
+@media (max-width: 900px) {
+  .topbar nav {
+    gap: 18px;
+  }
+}

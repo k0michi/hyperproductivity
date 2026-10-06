@@ -12,4 +12,8 @@ export type Api = {
   addCard: (deckId: string, title: string, cue: string, goals: string[]) => Promise<State>
 }
 
-declare global { interface Window { api: Api } }
+declare global {
+  interface Window {
+    api: Api
+  }
+}

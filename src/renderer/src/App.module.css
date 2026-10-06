@@ -1,4 +1,28 @@
-.app-shell { height: 100vh; padding-top: 74px; overflow: hidden; }
-.notice { position: fixed; top: 84px; right: 24px; z-index: 5; border: 1px solid #b55e55; border-radius: 6px; background: #fff; color: #9b423a; padding: 12px 14px; font-size: 12px; }
-.notice button { border: 0; background: transparent; color: inherit; margin-left: 14px; }
-.loading { text-align: center; padding: 80px; color: #768176; }
+.app-shell {
+  height: 100vh;
+  padding-top: 74px;
+  overflow: hidden;
+}
+.notice {
+  position: fixed;
+  top: 84px;
+  right: 24px;
+  z-index: 5;
+  border: 1px solid #b55e55;
+  border-radius: 6px;
+  background: #fff;
+  color: #9b423a;
+  padding: 12px 14px;
+  font-size: 12px;
+}
+.notice button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  margin-left: 14px;
+}
+.loading {
+  text-align: center;
+  padding: 80px;
+  color: #768176;
+}

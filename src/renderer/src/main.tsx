@@ -7,6 +7,8 @@ import './base.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <StoreProvider create={() => new AppStore()}><App /></StoreProvider>
-  </React.StrictMode>
+    <StoreProvider create={() => new AppStore()}>
+      <App />
+    </StoreProvider>
+  </React.StrictMode>,
 )

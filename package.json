@@ -7,6 +7,10 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "tsc --noEmit && electron-vite build",
+    "lint": "oxlint src electron.vite.config.ts",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css,html}\" electron.vite.config.ts package.json tsconfig.json electron-builder.yml .github/workflows/build.yml",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,html}\" electron.vite.config.ts package.json tsconfig.json electron-builder.yml .github/workflows/build.yml",
+    "check": "npm run lint && npm run format:check && npm run build",
     "package": "electron-builder --publish never",
     "preview": "electron-vite preview"
   },
@@ -22,6 +26,8 @@
     "electron": "latest",
     "electron-builder": "^26.15.3",
     "electron-vite": "latest",
+    "oxlint": "^1.87.0",
+    "prettier": "^3.9.9",
     "typescript": "latest",
     "vite": "^7.0.0"
   }

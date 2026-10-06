@@ -7,7 +7,9 @@ export class Store {
 
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   notifyListeners(): void {
@@ -15,12 +17,20 @@ export class Store {
     for (const listener of this.listeners) listener()
   }
 
-  get version(): number { return this._version }
+  get version(): number {
+    return this._version
+  }
 }
 
 const StoreRegistryContext = React.createContext<Map<Function, Store> | null>(null)
 
-export function StoreProvider<T extends Store>({ create, children }: { create: () => T; children: React.ReactNode }) {
+export function StoreProvider<T extends Store>({
+  create,
+  children,
+}: {
+  create: () => T
+  children: React.ReactNode
+}) {
   const parentRegistry = React.useContext(StoreRegistryContext)
   const [store] = React.useState(create)
   const registry = React.useMemo(() => {
@@ -42,12 +52,23 @@ export function useReader<T extends Store>(StoreClass: new (...args: never[]) =>
 export function useWatcher<T extends Store>(StoreClass: new (...args: never[]) => T): T {
   const store = useReader(StoreClass)
   const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store])
-  useSyncExternalStore(subscribe, () => store.version, () => store.version)
+  useSyncExternalStore(
+    subscribe,
+    () => store.version,
+    () => store.version,
+  )
   return store
 }
 
-export function useSelector<T extends Store, U>(StoreClass: new (...args: never[]) => T, selector: (store: T) => U): U {
+export function useSelector<T extends Store, U>(
+  StoreClass: new (...args: never[]) => T,
+  selector: (store: T) => U,
+): U {
   const store = useReader(StoreClass)
   const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store])
-  return useSyncExternalStore(subscribe, () => selector(store), () => selector(store))
+  return useSyncExternalStore(
+    subscribe,
+    () => selector(store),
+    () => selector(store),
+  )
 }
